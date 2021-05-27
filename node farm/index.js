@@ -1,6 +1,10 @@
+//importing in-built modules
 const fs = require('fs');
 const http = require('http');
 const url = require('url');
+
+//importing custom-module
+const replaceTemplate = require('./modules/replaceTemplate');
 
 //---------------------------FILES---------------------------//
 //Blocking, synchronous way
@@ -28,55 +32,59 @@ const url = require('url');
 // console.log("Will read file!");
 
 //--------------------------SERVER------------------------//
-const replaceTemplate = (temp, product) =>
-{
-    let output = temp.replace(/{%productname%}/g, product.productName);
-    output = output.replace(/{%image%}/g, product.image);
-    output = output.replace(/{%from%}/g, product.from);
-    output = output.replace(/{%nutrients%}/g, product.nutrients);
-    output = output.replace(/{%quantity%}/g, product.quantity);
-    output = output.replace(/{%description%}/g, product.description);
-    output = output.replace(/{%id%}/g, product.id);
-    output = output.replace(/{%price%}/g, product.price);
-
-    if(!product.organic)
-        output = output.replace(/{%not_organic%}/g, 'not-organic')
-    
-    return output;
-    
-}
 
 
+//reading the template files and saving them to a variable as a string
 const tempOverview = fs.readFileSync(`${__dirname}/templates/template-overview.html`, 'utf-8');
 const tempCard = fs.readFileSync(`${__dirname}/templates/template-card.html`, 'utf-8');
 const tempProduct = fs.readFileSync(`${__dirname}/templates/template-product.html`, 'utf-8');
 
+//reading the data file as a string
 const data = fs.readFileSync(`${__dirname}/dev-data/data.json`, 'utf-8');
+
+//converting the data file into a JS object
 const dataObj = JSON.parse(data); 
 
+//this is our server where everything happens on the site
 const server = http.createServer((req,res) => {
-    const pathName = req.url;
+    
+    //req.url object has two properties: query and pathname, so we parse req.url to a JS object and then save the query and pathname of the url
+    const {query, pathname} = url.parse(req.url, true);
     
     //overview page
-    if(pathName === '/' || pathName === '/overview')
+    if(pathname === '/' || pathname === '/overview')
     {   
+        //replacing the tempCard for each item one by one and adding all of that to create a string
         const cardsHtml = dataObj.map(el => replaceTemplate(tempCard, el)).join('');
-        console.log(cardsHtml);
         
+        //finally in the overview temlate, we change the product card to the cardsHtml
         const output = tempOverview.replace('{%product_card%}', cardsHtml);
+        
+        //this defines status code as 200 and content type as text/html which the browser will read
         res.writeHead(200, {'Content-type': 'text/html'});
         res.end(output);
     }
     
     //product page
-    else if (pathName==='/product')
+    else if (pathname==='/product')
     {
-        res.end('This is the product');
+        res.writeHead(200, {'Content-type': 'text/html'});
+        
+        //for a particular product page, we use the query property of url to get the id of the item
+        //and then from the data object we extract that item and save it
+        const product = dataObj[query.id];
+        
+        //finally we replace the current template which is empty, with the the product that we just extracted from the data object
+        const productHtml = replaceTemplate(tempProduct, product);
+        
+        //finally we send the finished string of template
+        res.end(productHtml);
     }
     
     //api
-    else if(pathName === '/api')
+    else if(pathname === '/api')
     {
+        //this just sends the data as a json file to the browser
         res.writeHead(200, {'Content-type': 'application/json'});
         res.end(data);
     }
@@ -84,14 +92,18 @@ const server = http.createServer((req,res) => {
     //not found
     else
     {
+        //for 404 errors, we can send the meta data that will store the status code, some headers, or headers that you can manually create
         res.writeHead(404, {
             'Content-Type': 'text/html',
             'my-own-header': 'can do this too'
         });
+        
+        //the string send will be treated as html
         res.end('<h1>Page not found!</h1>');
     }
 });
 
+//server will listen at port 1000 and address '127.0.0.1' which is also the localhost
 server.listen(8000, '127.0.0.1', () => {
     console.log('Server is started!');
 })
