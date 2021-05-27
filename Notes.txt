@@ -1,0 +1,6 @@
+/-------------How Internet Works?---------------/
+-> the domain name is not the real address, so to get the real address, the browser will send a request to the DNS(Domain Name System) which fill find the real IP address of the site and send it back to the browser.
+-> the server connects to the user through TCP/IP protocol which are just the rules of how data tranfer would take place
+-> the user sends the HTTP request containg the information about what we the user wants
+-> the server will create the data to be sent and then a HTTP response will be given back to the user 
+-> data transfer takes place in the form of small chunks 

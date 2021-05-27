@@ -1,0 +1,7 @@
+-> Can check for outdated packages using, "npm outdated"
+-> Can install a particular version such as 1.0.0 of a package using, "npm install package-name@1.0.0"
+-> "1.0.0" indicates, 1 as major version, 0 as minor version and 0 as path number
+-> "^1.0.0" will indicate that we will accept any minor version changes or patches for current package
+-> "~1.0.0" will indicate that we will accept only patches to the current version
+-> "*1.0.0" will indicate that we will accept all the versions even if it may cause any breaking changes
+
