@@ -1,0 +1,3 @@
+-> See commit history => git log
+-> Update last commit message => git commit --amend
+-> Pushing the updated commit to repository => git push --force-with-lease
