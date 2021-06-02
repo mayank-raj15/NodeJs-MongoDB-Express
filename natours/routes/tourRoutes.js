@@ -5,12 +5,12 @@ const tourController = require('./../controller/tourController');
 const router = express.Router();
 
 //it is a param middleware which allows us to manipulate or use the request parameters
-router.param('id', tourController.checkID);
+// router.param('id', tourController.checkID);
 
 router
   .route('/')
   .get(tourController.getAllTours)
-  .post(tourController.checkBody, tourController.addNewTour);
+  .post(tourController.addNewTour);
 
 router
   .route('/:id')
