@@ -1,9 +1,9 @@
 const Tour = require('./../models/tourModels');
+const APIFeatures = require('./../utils/apiFeatures');
 
 //-----------route functions-------------//
 
-//this is the funciton to get all tours
-
+//this is the middleware used to add name, price, ratingsAverage, summary & difficulty to the query and also add sort and limit options in the query to retrieve top 5 best and cheap tours
 exports.aliasTopTours = async (req, res, next) => {
   req.query.limit = '5';
   req.query.sort = '-ratingsAverage,price';
@@ -11,52 +11,17 @@ exports.aliasTopTours = async (req, res, next) => {
   next();
 };
 
+//this is the funciton to get all tours
 exports.getAllTours = async (req, res) => {
   try {
-    console.log(req.query);
+    //EXECUTE QUERY
+    const features = new APIFeatures(Tour.find(), req.query)
+      .filter()
+      .sort()
+      .limitFields()
+      .paginate();
 
-    //BUILD QUERY
-    // Filtering
-    const queryObj = { ...req.query };
-    const excludedFields = ['page', 'sort', 'limit', 'fields'];
-    excludedFields.map(el => delete queryObj[el]);
-
-    // Advanced Filtering
-    let queryStr = JSON.stringify(queryObj);
-    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, match => `$${match}`);
-
-    let query = Tour.find(JSON.parse(queryStr));
-
-    // Sorting
-    if (req.query.sort) {
-      const sortBy = req.query.sort.split(',').join(' ');
-      query = query.sort(sortBy);
-    } else {
-      query = query.sort('-ratingsAverage');
-    }
-
-    // Field Limiting
-    if (req.query.fields) {
-      const fields = req.query.fields.split(',').join(' ');
-      query = query.select(fields);
-    } else {
-      query = query.select('-__v');
-    }
-
-    //Pagination
-    const page = req.query.page * 1 || 1;
-    const limit = req.query.limit * 1 || 1;
-    const skip = (page - 1) * limit;
-
-    query = query.skip(skip).limit(limit);
-
-    if (req.query.page) {
-      const numTours = await Tour.countDocuments();
-      if (skip >= numTours) throw new Error('This page does not exist!');
-    }
-
-    // EXECUTE QUERY
-    const tours = await query;
+    const tours = await features.query;
 
     //SEND RESULT
     res.status(200).json({
@@ -143,6 +108,108 @@ exports.deleteTour = async (req, res) => {
     res.status(204).json({
       status: 'success',
       data: null
+    });
+  } catch (err) {
+    res.status(404).json({
+      status: 'fail',
+      message: err
+    });
+  }
+};
+
+//function to get the statistics using mongoDB functions
+//aggreagate is used to refine and manipulate the data, it consists of an array of pipeline stages
+//each stages makes some changes to the data using pipeline operators and sends it forward
+exports.getTourStats = async (req, res) => {
+  try {
+    const stats = await Tour.aggregate([
+      {
+        //all the tours with rating average greater than equal to 4.5 will be selected
+        $match: { ratingsAverage: { $gte: 4.5 } }
+      },
+      {
+        //with the help of grouping we group the documents based on a certain field(parameter) assigned to the ID
+        //after we group the documents, for each group we can iterate thorugh the documents and get the required consisting of information of those documents
+        $group: {
+          _id: { $toUpper: '$difficulty' },
+          numRatings: { $sum: '$ratingsQuantity' },
+          numTours: { $sum: 1 },
+          avgRating: { $avg: '$ratingsAverage' },
+          avgPrice: { $avg: '$price' },
+          minPrice: { $min: '$price' },
+          maxPrice: { $max: '$price' }
+        }
+      },
+      {
+        //sorting the data on the basis of a field, 1 for ascending and -1 for descending
+        $sort: { avgPrice: -1 }
+      }
+      // {
+      //   $match: { _id: { $ne: 'EASY' } }
+      // }
+    ]);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        stats
+      }
+    });
+  } catch (err) {
+    res.status(404).json({
+      status: 'fail',
+      message: err
+    });
+  }
+};
+
+exports.getMonthlyPlan = async (req, res) => {
+  try {
+    const year = req.params.year * 1;
+    const plan = await Tour.aggregate([
+      {
+        //it takes in a field that contains array of elements and create seperate complete document for each array element of that field
+        $unwind: '$startDates'
+      },
+      {
+        $match: {
+          startDates: {
+            $gte: new Date(`${year}-01-01`),
+            $lte: new Date(`${year}-12-31`)
+          }
+        }
+      },
+      {
+        $group: {
+          _id: { $month: '$startDates' },
+          numTourStarts: { $sum: 1 },
+          tours: { $push: '$name' }
+        }
+      },
+      {
+        //it is used to add a field in the data
+        $addFields: { month: '$_id' }
+      },
+      {
+        //project is used to set the visibility of a field in data, 0 (not-visible),  1 (visible)
+        $project: {
+          _id: 0
+        }
+      },
+      {
+        $sort: { numTourStarts: -1 }
+      },
+      {
+        //it limits the number of entries in the data
+        $limit: 12
+      }
+    ]);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        plan
+      }
     });
   } catch (err) {
     res.status(404).json({
