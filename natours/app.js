@@ -9,17 +9,10 @@ const app = express();
 const tourRouter = require('./routes/tourRoutes');
 const userRouter = require('./routes/userRoutes');
 
-//error class
-const AppError = require('./utils/appError');
-
-//global error handler
-const globalErrorHandler = require('./controller/errorController');
-
 //-------middleware--------//
 
 //this is a middleware, they basically are used to manipulate request and response object while sending data to server
 
-console.log(process.env.NODE_ENV);
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
@@ -31,10 +24,10 @@ app.use(express.static(`${__dirname}/public`));
 //we have access to req, res and next
 //next refers to the next middleware in the middleware stack
 //it is necessary to call the next() function to continue the stack, otherwise the request would get stuck at this middleware
-/* app.use((req, res, next) => {
+app.use((req, res, next) => {
   console.log('Hello from the middleware!');
   next();
-}); */
+});
 
 //this is also our own middleware which adds requestTime to the request
 app.use((req, res, next) => {
@@ -56,28 +49,6 @@ app.use((req, res, next) => {
 
 app.use('/api/v1/tours', tourRouter);
 app.use('/api/v1/users', userRouter);
-
-app.all('*', (req, res, next) => {
-  /* res.status(404).json({
-    status: 'fail',
-    message: `Can't find ${req.originalUrl} on this server!`
-  }); */
-
-  //while creating a new error, we pass in the err.message as a string
-  /* const err = new Error(`Can't find ${req.originalUrl} on this server!`);
-  err.statusCode = 404;
-  err.status = 'fail'; */
-
-  const err = new AppError(
-    `Can't find ${req.originalUrl} on this server!`,
-    404
-  );
-
-  //whenever we pass an argument to the next function, it will automatically assume there is an error and will straight-away go to the global error handling middleware that accepts the err argument
-  next(err);
-});
-
-app.use(globalErrorHandler);
 
 module.exports = app;
 
